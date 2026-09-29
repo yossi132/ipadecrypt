@@ -260,76 +260,81 @@ func bootstrapHandler(cmd *cobra.Command, args []string) {
 
 	// ---- Step 3: device prerequisites --------------------------------
 
-	tui.Step(3, 4, "Install device prerequisites")
-	tui.Info("ipadecrypt needs these packages on the jailbroken device:")
-	tui.Bullet("AppSync Unified   bypasses installd's signature check")
-	tui.Bullet("                  add repo: https://lukezgd.github.io/repo")
-	tui.Bullet("appinst           installs modified IPAs on the device")
-	tui.Info("A reboot may be needed after installing; that's fine, we'll reconnect.")
+	if bootstrapSkipInstallPrereqs {
+		tui.Step(3, 4, "Install device prerequisites (skipped)")
+		tui.Info("Skipping AppSync Unified and appinst checks for decrypt --use-installed only.\nIPA installation/reinstallation still requires these packages.")
+	} else {
+		tui.Step(3, 4, "Install device prerequisites")
+		tui.Info("ipadecrypt needs these packages on the jailbroken device:")
+		tui.Bullet("AppSync Unified   bypasses installd's signature check")
+		tui.Bullet("                  add repo: https://lukezgd.github.io/repo")
+		tui.Bullet("appinst           installs modified IPAs on the device")
+		tui.Info("A reboot may be needed after installing; that's fine, we'll reconnect.")
 
-	prevLines := 0
-	prompt := "press Enter once installed to verify"
+		prevLines := 0
+		prompt := "press Enter once installed to verify"
 
-	for {
-		if prevLines > 0 {
-			tui.Erase(prevLines)
-		}
-
-		// Fresh SSH connection each iteration so a reboot mid-bootstrap is safe.
-		printed := 0
-		missing := 0
-		connectionFailed := false
-
-		pdev, err := device.Connect(context.Background(), cfg.Device)
-		if err != nil {
-			tui.Err("ssh connect failed: %v", err)
-
-			printed = 1
-			connectionFailed = true
-		} else {
-			checks := []struct {
-				name  string
-				probe func() (string, error)
-			}{
-				{"AppSync Unified", pdev.LocateAppSync},
-				{"appinst", pdev.LocateAppinst},
+		for {
+			if prevLines > 0 {
+				tui.Erase(prevLines)
 			}
-			for _, c := range checks {
-				p, err := c.probe()
-				switch {
-				case err != nil:
-					tui.Err("%s - %v", c.name, err)
 
-					missing++
-				case p == "":
-					tui.Err("%s - not found", c.name)
+			// Fresh SSH connection each iteration so a reboot mid-bootstrap is safe.
+			printed := 0
+			missing := 0
+			connectionFailed := false
 
-					missing++
-				default:
-					tui.OK("%s → %s", c.name, p)
+			pdev, err := device.Connect(context.Background(), cfg.Device)
+			if err != nil {
+				tui.Err("ssh connect failed: %v", err)
+
+				printed = 1
+				connectionFailed = true
+			} else {
+				checks := []struct {
+					name  string
+					probe func() (string, error)
+				}{
+					{"AppSync Unified", pdev.LocateAppSync},
+					{"appinst", pdev.LocateAppinst},
+				}
+				for _, c := range checks {
+					p, err := c.probe()
+					switch {
+					case err != nil:
+						tui.Err("%s - %v", c.name, err)
+
+						missing++
+					case p == "":
+						tui.Err("%s - not found", c.name)
+
+						missing++
+					default:
+						tui.OK("%s → %s", c.name, p)
+					}
+
+					printed++
 				}
 
-				printed++
+				pdev.Close()
 			}
 
-			pdev.Close()
-		}
+			if !connectionFailed && missing == 0 {
+				break
+			}
 
-		if !connectionFailed && missing == 0 {
-			break
-		}
+			if err := tui.PressEnter(prompt); err != nil {
+				return
+			}
 
-		if err := tui.PressEnter(prompt); err != nil {
-			return
-		}
+			// Status rows + prompt row + Enter-echo row.
+			prevLines = printed + 2
 
-		// Status rows + prompt row + Enter-echo row.
-		prevLines = printed + 2
-
-		if connectionFailed {
-			prompt = "press Enter to retry"
-		} else {
-			prompt = fmt.Sprintf("%d missing - press Enter to retry", missing)
+			if connectionFailed {
+				prompt = "press Enter to retry"
+			} else {
+				prompt = fmt.Sprintf("%d missing - press Enter to retry", missing)
+			}
 		}
 	}
 
@@ -367,5 +372,10 @@ func bootstrapHandler(cmd *cobra.Command, args []string) {
 	live.OK("helper ready at %s", helperPath)
 
 	tui.Spacer()
+	if bootstrapSkipInstallPrereqs {
+		tui.OK("bootstrap complete - run `ipadecrypt decrypt <installed-bundle-id> --use-installed --no-uninstall` to decrypt an installed app")
+		return
+	}
+
 	tui.OK("bootstrap complete - run `ipadecrypt decrypt <bundle-id|app-store-id|app-store-url|path-to-local-ipa>` to decrypt an app")
 }

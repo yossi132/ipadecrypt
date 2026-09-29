@@ -15,8 +15,9 @@ var (
 	rootDirOverride string
 	redactSensitive bool
 
-	bootstrapReset     bool
-	bootstrapSkipLogin bool
+	bootstrapReset              bool
+	bootstrapSkipLogin          bool
+	bootstrapSkipInstallPrereqs bool
 
 	decryptExtVerID       string
 	decryptOutput         string
@@ -56,6 +57,8 @@ func main() {
 	}
 	bootstrap.Flags().BoolVar(&bootstrapReset, "reset", false, "forget cached credentials and re-prompt")
 	bootstrap.Flags().BoolVar(&bootstrapSkipLogin, "skip-login", false, "do not login to the App Store. ipadecrypt won't be able to use any App Store related features")
+
+	bootstrap.Flags().BoolVar(&bootstrapSkipInstallPrereqs, "skip-install-prereqs", false, "skip AppSync Unified and appinst checks for decrypt --use-installed; SSH probing and helper setup are still required")
 
 	decrypt := &cobra.Command{
 		Use:   "decrypt <bundle-id|app-store-id|app-store-url|path-to-local-ipa>",

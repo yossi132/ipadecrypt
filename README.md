@@ -65,6 +65,24 @@ A four-step interactive wizard:
 3. **Prerequisites** - verifies whether deps are installed.
 4. **Helper install** - uploads helper binary and verifies whether it runs.
 
+### Setup for an already-installed app only
+
+```sh
+ipadecrypt --root-dir ./installed-app-config bootstrap --skip-login --skip-install-prereqs
+ipadecrypt --root-dir ./installed-app-config decrypt <installed-bundle-id> --use-installed --no-uninstall --verbose
+```
+
+`--skip-install-prereqs` skips only bootstrap's AppSync Unified and appinst
+checks. SSH connection, device probing, helper upload, and helper execution
+verification remain required. The option does not mark either package as
+installed or change the installation/reinstallation path. Omit it when setting
+up IPA installation workflows.
+
+Use a fresh config directory with `--skip-login` for an installed-app-only test.
+If the bundle ID is not found, upstream attempts the App Store path; without
+an Apple ID configured it stops before downloading. `--no-uninstall` preserves
+the installed app after the test. The SSH account still needs sudo access.
+
 ### Decrypt an app
 
 ```sh
